@@ -867,6 +867,7 @@ class CalculatorExpr {
                 val = val.multiply(tmp.val);
             }
             cpos = tmp.pos;
+            is_mul = is_div = false;
         }
         return new EvalRet(cpos, val);
     }
