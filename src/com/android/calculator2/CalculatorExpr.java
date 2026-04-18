@@ -429,7 +429,10 @@ class CalculatorExpr {
             return false;
         }
         Token t = mExpr.get(s-1);
-        return t instanceof Constant;
+        if ((t instanceof Constant)) return true;
+        if (!(t instanceof Operator)) return false;
+        Operator o = (Operator)t;
+        return o.id == R.id.const_pi || o.id == R.id.const_e;
     }
 
     /**
@@ -442,6 +445,18 @@ class CalculatorExpr {
         if (!(t instanceof Operator)) return false;
         Operator o = (Operator)t;
         return (KeyMaps.isBinary(o.id));
+    }
+
+    /**
+     * Does this expression end with a suffix operator?
+     */
+    boolean hasTrailingSuffix() {
+        int s = mExpr.size();
+        if (s == 0) return false;
+        Token t = mExpr.get(s-1);
+        if (!(t instanceof Operator)) return false;
+        Operator o = (Operator)t;
+        return (KeyMaps.isSuffix(o.id));
     }
 
     /**
