@@ -248,6 +248,18 @@ class CalculatorExpr {
             return KeyMaps.translateResult(result);
         }
 
+        // 返回不带格式化的原始数字字符串（密码检测用）
+        public String toRawString() {
+            String result = mWhole;
+            if (mSawDecimal) {
+                result += '.' + mFraction;
+            }
+            if (mExponent != 0) {
+                result += "E" + mExponent;
+            }
+            return result;
+        }
+
         /**
          * Return BoundedRational representation of constant, if well-formed.
          * Result is never null.
@@ -657,6 +669,30 @@ class CalculatorExpr {
             return false;
         }
         return mExpr.get(0) instanceof Constant;
+    }
+
+    // 是否为纯数字输入（无运算符、无函数、无括号），用于密码检测
+    public boolean isPureNumeric() {
+        if (mExpr.isEmpty()) return false;
+        for (Token t : mExpr) {
+            if (!(t instanceof Constant)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 获取纯数字字符串表示（密码检测用）
+    public String toPlainNumberString() {
+        StringBuilder sb = new StringBuilder();
+        for (Token t : mExpr) {
+            if (t instanceof Constant) {
+                sb.append(((Constant) t).toRawString());
+            } else {
+                return null;
+            }
+        }
+        return sb.toString();
     }
 
     /**

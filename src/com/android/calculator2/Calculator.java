@@ -58,6 +58,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
+import com.android.calculator2.vault.VaultActivity;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -881,7 +882,24 @@ public class Calculator extends AppCompatActivity
             if (haveUnprocessed()) {
                 setState(CalculatorState.EVALUATE);
                 onError(Evaluator.MAIN_INDEX, R.string.error_syntax);
-            } else if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
+                return;
+            }
+
+            // 密码检测：纯数字输入可能是密码
+            CalculatorExpr expr = mEvaluator.getExpr(Evaluator.MAIN_INDEX);
+            if (expr.isPureNumeric()) {
+                String input = expr.toPlainNumberString();
+                if (input != null && PasswordManager.getInstance(this).checkPassword(input)) {
+                    // 密码正确，进入隐私相册
+                    Intent vaultIntent = new Intent(this, VaultActivity.class);
+                    startActivity(vaultIntent);
+                    onClearEnd();
+                    return;
+                }
+                // 密码错误，不做任何特殊处理，继续走正常计算流程
+            }
+
+            if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
                 setState(CalculatorState.EVALUATE);
                 mEvaluator.requireResult(Evaluator.MAIN_INDEX, this, mResultText);
             }

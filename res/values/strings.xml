@@ -295,4 +295,27 @@
     <!-- Placeholder string when there is no history to be shown. [CHAR_LIMIT=40] -->
     <string name="no_history">No History</string>
 
+    <!-- 隐私相册相关 -->
+    <string name="title_vault">私密空间</string>
+    <string name="import_from_gallery">导入</string>
+    <string name="export_to_gallery">导出</string>
+    <string name="delete_selected">删除</string>
+    <string name="select_all">全选</string>
+    <string name="no_media">暂无内容</string>
+    <string name="password_settings">密码设置</string>
+    <string name="current_password">当前密码</string>
+    <string name="new_password">新密码</string>
+    <string name="confirm_password">确认密码</string>
+    <string name="password_changed">密码已更新</string>
+    <string name="password_mismatch">两次输入不一致</string>
+    <string name="password_empty">密码不能为空</string>
+    <string name="delete_confirm">确定删除选中的 %d 个文件？</string>
+    <string name="import_success">导入成功</string>
+    <string name="export_success">导出成功</string>
+    <string name="media_count">%d 个文件</string>
+    <string name="save">保存</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="permission_denied">需要存储权限才能导入文件</string>
+
 </resources>

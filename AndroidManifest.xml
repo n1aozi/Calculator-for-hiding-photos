@@ -7,6 +7,9 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.calculator2">
 
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+
     <application
         android:name=".CalculatorApplication"
         android:allowBackup="true"
@@ -34,6 +37,16 @@
             android:launchMode="singleTop"
             android:parentActivityName=".Calculator"
             android:theme="@style/Theme.Licenses" />
+
+        <activity
+            android:name=".vault.VaultActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Calculator" />
+
+        <activity
+            android:name=".vault.MediaViewerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Calculator" />
 
     </application>
 </manifest>
