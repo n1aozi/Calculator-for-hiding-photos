@@ -238,23 +238,68 @@ class VaultActivity : AppCompatActivity(), MediaAdapter.OnItemClickListener {
                 loadMedia()
                 Toast.makeText(this, R.string.import_success, Toast.LENGTH_SHORT).show()
 
-                if (result.originalNames.isNotEmpty()) {
-                    requestDeleteOriginals(result.originalNames)
+                if (result.mediaStoreUris.isNotEmpty()) {
+                    requestDeleteOriginals(result.mediaStoreUris)
                 }
             }
         }.start()
     }
 
-    private fun requestDeleteOriginals(names: List<Pair<String, Boolean>>) {
+    private fun requestDeleteOriginals(mediaStoreUris: List<Uri>) {
+        if (mediaStoreUris.isEmpty()) return
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val mediaStoreUris = repository.findMediaStoreUris(names)
-            if (mediaStoreUris.isNotEmpty()) {
+            try {
+                val deleteRequest = MediaStore.createDeleteRequest(contentResolver, mediaStoreUris)
+                deleteOriginalLauncher.launch(IntentSenderRequest.Builder(deleteRequest.intentSender).build())
+            } catch (e: Exception) {
+                e.printStackTrace()
+                deleteOriginalsFallback(mediaStoreUris)
+            }
+        } else {
+            deleteOriginalsFallback(mediaStoreUris)
+        }
+    }
+
+    private fun deleteOriginalsFallback(uris: List<Uri>) {
+        Thread {
+            var deleted = 0
+            for (uri in uris) {
                 try {
-                    val deleteRequest = MediaStore.createDeleteRequest(contentResolver, mediaStoreUris)
-                    deleteOriginalLauncher.launch(IntentSenderRequest.Builder(deleteRequest.intentSender).build())
-                } catch (_: Exception) {}
+                    val rows = contentResolver.delete(uri, null, null)
+                    if (rows > 0) deleted++
+                } catch (e: SecurityException) {
+                    try {
+                        val filePath = getFilePathFromUri(uri)
+                        if (filePath != null) {
+                            val file = java.io.File(filePath)
+                            if (file.exists() && file.delete()) deleted++
+                        }
+                    } catch (ex: Exception) {
+                        ex.printStackTrace()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            if (deleted > 0) {
+                runOnUiThread {
+                    Toast.makeText(this, getString(R.string.original_deleted, deleted), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun getFilePathFromUri(uri: Uri): String? {
+        var filePath: String? = null
+        val projection = arrayOf(MediaStore.MediaColumns.DATA)
+        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+                filePath = cursor.getString(dataIndex)
             }
         }
+        return filePath
     }
 
     private fun exportSelected() {

@@ -77,13 +77,13 @@ class VaultRepository private constructor(private val context: Context) {
 
     data class ImportResult(
         val items: List<MediaItem>,
-        val originalNames: List<Pair<String, Boolean>>
+        val mediaStoreUris: List<Uri>
     )
 
     fun importFromGallery(uris: List<android.net.Uri>): ImportResult {
         initVault()
         val imported = mutableListOf<MediaItem>()
-        val originalNames = mutableListOf<Pair<String, Boolean>>()
+        val mediaStoreUris = mutableListOf<Uri>()
         var itemId = System.currentTimeMillis()
 
         for (uri in uris) {
@@ -124,38 +124,107 @@ class VaultRepository private constructor(private val context: Context) {
                         dateAdded = System.currentTimeMillis()
                     )
                 )
-                originalNames.add(displayName to isVideo)
+
+                resolveMediaStoreUri(uri, isVideo, displayName, actualDest.length())?.let { mediaStoreUris.add(it) }
+
                 itemId++
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
-        return ImportResult(imported, originalNames)
+        return ImportResult(imported, mediaStoreUris)
     }
 
-    fun findMediaStoreUris(names: List<Pair<String, Boolean>>): List<Uri> {
-        val uris = mutableListOf<Uri>()
-        for ((name, isVideo) in names) {
-            try {
-                val collection = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-
-                context.contentResolver.query(
-                    collection,
-                    arrayOf(MediaStore.MediaColumns._ID),
-                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-                    arrayOf(name),
-                    null
-                )?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                        val id = cursor.getLong(idColumn)
-                        uris.add(ContentUris.withAppendedId(collection, id))
-                    }
-                }
-            } catch (_: Exception) {}
+    private fun resolveMediaStoreUri(safUri: Uri, isVideo: Boolean, displayName: String? = null, fileSize: Long = -1): Uri? {
+        // 如果 URI 已经是 MediaStore URI，直接返回
+        if (safUri.authority == "media") {
+            return safUri
         }
-        return uris
+
+        // SAF 媒体 URI 格式: content://com.android.providers.media.documents/document/image:123
+        if (safUri.authority == "com.android.providers.media.documents") {
+            val segments = safUri.lastPathSegment?.split(":")
+            if (segments?.size == 2) {
+                val id = segments[1].toLongOrNull()
+                if (id != null) {
+                    val collection = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    return ContentUris.withAppendedId(collection, id)
+                }
+            }
+        }
+
+        // 回退1：通过 DATA 列匹配文件路径
+        findMediaStoreUriByData(safUri, isVideo)?.let { return it }
+
+        // 回退2：通过显示名称和文件大小匹配
+        if (displayName != null) {
+            findMediaStoreUriByDisplayName(displayName, isVideo, fileSize)?.let { return it }
+        }
+
+        return null
+    }
+
+    private fun findMediaStoreUriByDisplayName(displayName: String, isVideo: Boolean, fileSize: Long = -1): Uri? {
+        val collection = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+
+        val projection = arrayOf(MediaStore.MediaColumns._ID)
+        val selection: String
+        val selectionArgs: Array<String>
+
+        if (fileSize > 0) {
+            selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.SIZE} = ?"
+            selectionArgs = arrayOf(displayName, fileSize.toString())
+        } else {
+            selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ?"
+            selectionArgs = arrayOf(displayName)
+        }
+
+        context.contentResolver.query(
+            collection,
+            projection,
+            selection,
+            selectionArgs,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                return ContentUris.withAppendedId(collection, id)
+            }
+        }
+        return null
+    }
+
+    private fun findMediaStoreUriByData(safUri: Uri, isVideo: Boolean): Uri? {
+        // 尝试通过 SAF 获取文件路径，再在 MediaStore 中查找
+        var filePath: String? = null
+        context.contentResolver.query(safUri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val dataIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                if (dataIndex >= 0) {
+                    filePath = cursor.getString(dataIndex)
+                }
+            }
+        }
+
+        if (filePath != null) {
+            val collection = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            context.contentResolver.query(
+                collection,
+                arrayOf(MediaStore.MediaColumns._ID),
+                "${MediaStore.MediaColumns.DATA} = ?",
+                arrayOf(filePath),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                    return ContentUris.withAppendedId(collection, id)
+                }
+            }
+        }
+        return null
     }
 
     fun exportToGallery(items: List<MediaItem>) {
